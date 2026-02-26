@@ -1,18 +1,11 @@
 #!/bin/bash
-# ==============================================================================
-# Mehtunnel Installer
-# ==============================================================================
+# install mehtunnel
 
-# مسیر نصب
-INSTALL_PATH="/usr/local/bin/mehtunnel.sh"
+# make executable
+chmod +x mehtunnel.py
 
-# دانلود فایل اصلی
-echo "[•] Downloading Mehtunnel script..."
-curl -fsSL "https://raw.githubusercontent.com/mehrannoway-ops/TuM/main/mehtunnel.sh" -o "$INSTALL_PATH"
+# optionally copy to /usr/local/bin for global access
+cp mehtunnel.py /usr/local/bin/mehtunnel
 
-# مجوز اجرایی
-chmod +x "$INSTALL_PATH"
-
-# اجرا
-echo "[•] Launching Mehtunnel..."
-"$INSTALL_PATH"
+echo "mehtunnel installed. You can run it via:"
+echo "  mehtunnel"

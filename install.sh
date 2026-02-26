@@ -3,12 +3,7 @@ set -e
 
 BIN="/usr/local/bin"
 CORE="$BIN/mehtunnel-core"
-MT_DIR="/opt/mehtunnel"
-MT_SCRIPT="$MT_DIR/mehtunnel.sh"
-
-# نصب پیش‌نیازها
-apt update -qq
-apt install -y curl wget cron openssl jq >/dev/null
+MT_SCRIPT="$BIN/mehtunnel"
 
 # دانلود GOST
 ARCH=$(uname -m)
@@ -25,12 +20,8 @@ tar -xzf /tmp/g.tgz -C /tmp
 mv /tmp/gost "$CORE"
 chmod +x "$CORE"
 
-# ساخت دایرکتوری و دانلود mehtunnel.sh از GitHub
-mkdir -p "$MT_DIR"
+# دانلود mehtunnel.sh و تبدیل به mehtunnel قابل اجرا
 wget -q "https://raw.githubusercontent.com/mehrannoway-ops/TuM/main/mehtunnel.sh" -O "$MT_SCRIPT"
 chmod +x "$MT_SCRIPT"
-
-# لینک اجرایی
-ln -sf "$MT_SCRIPT" /usr/local/bin/mehtunnel
 
 echo "✅ MehTunnel installed. Run: mehtunnel"

@@ -1,155 +1,156 @@
 #!/bin/bash
+# mehtunnel.sh - Encrypted Tunnel Manager
+# Version 1.3.0
 
-# ==============================================================================
-# MehTunnel - Advanced Encrypted Tunnel Manager
-# Version: 2.0.0 (Full Menu Edition)
-# ==============================================================================
-
-# ---------------- CONFIG ----------------
-BIN_PATH="/usr/local/bin/mehtunnel-core"
 BASE_DIR="/opt/mehtunnel"
-CONFIG_DIR="/etc/mehtunnel"
-LOG_DIR="/var/log/mehtunnel"
-TLS_DIR="$CONFIG_DIR/tls"
-BACKUP_DIR="/root/mehtunnel-backups"
-SYSTEMD_DIR="/etc/systemd/system"
+CONFIG_DIR="$BASE_DIR/configs"
+LOG_DIR="$BASE_DIR/logs"
+PID_DIR="$BASE_DIR/pids"
+mkdir -p "$CONFIG_DIR" "$LOG_DIR" "$PID_DIR"
 
-# ---------------- COLORS ----------------
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+GOST_BIN="/usr/local/bin/mehtunnel-core"
 
-ok(){ echo -e "${GREEN}[✓]${NC} $1"; }
-err(){ echo -e "${RED}[✗]${NC} $1"; }
-pause(){ read -p "Enter برای ادامه..."; }
+RED="\e[31m"
+GREEN="\e[32m"
+YELLOW="\e[33m"
+BLUE="\e[34m"
+RESET="\e[0m"
 
-# ---------------- CHECK ----------------
-[[ $EUID -ne 0 ]] && err "Run as root" && exit 1
-mkdir -p "$CONFIG_DIR" "$LOG_DIR" "$TLS_DIR" "$BACKUP_DIR"
-
-# ---------------- TLS ----------------
-gen_tls() {
-  [[ -f "$TLS_DIR/server.crt" ]] && return
-  openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
-    -subj "/C=US/O=Cloudflare/CN=www.cloudflare.com" \
-    -keyout "$TLS_DIR/server.key" \
-    -out "$TLS_DIR/server.crt" >/dev/null 2>&1
+function print_logo() {
+cat << "LOGO"
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║      ████╗  ███╗███████╗██╗  ██╗███╗   ██╗                    ║
+║      ████╗  ███╗███╗    ██╗  ██╗███╗   ██╗                    ║
+║      ██████████████████╗  ██╗  ██╗█████╗  ██╗                  ║
+║      ██  █  ██  █  ██╔══╝  ██║  ██║██╔══╝  ██║                  ║
+║      ██     ██     ███████╗██║  ██║███████╗██║                  ║
+║      ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝╚═╝                  ║
+║                                                              ║
+║           MehTunnel - Encrypted Tunnel Manager                ║
+║                      Version 1.3.0                           ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+LOGO
 }
 
-# ---------------- CLIENT ----------------
-create_client() {
-  read -p "Server IP: " IP
-  read -p "Port [8443]: " PORT; PORT=${PORT:-8443}
-  read -p "Password: " PASS
-
-  SERVICE="mehtunnel-client-$PORT"
-
-cat > "$SYSTEMD_DIR/$SERVICE.service" <<EOF
-[Unit]
-Description=MehTunnel Client ($PORT)
-After=network.target
-
-[Service]
-ExecStart=$BIN_PATH -F "relay+mwss://$IP:$PORT?key=$PASS&keepalive=true"
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-  systemctl daemon-reload
-  systemctl enable --now "$SERVICE"
-  ok "Client tunnel created: $SERVICE"
-  pause
-}
-
-# ---------------- SERVER ----------------
-create_server() {
-  read -p "Listen Port [8443]: " PORT; PORT=${PORT:-8443}
-  read -p "Password: " PASS
-  gen_tls
-
-  SERVICE="mehtunnel-server-$PORT"
-
-cat > "$SYSTEMD_DIR/$SERVICE.service" <<EOF
-[Unit]
-Description=MehTunnel Server ($PORT)
-After=network.target
-
-[Service]
-ExecStart=$BIN_PATH -L "relay+mwss://:$PORT?cert=$TLS_DIR/server.crt&key=$TLS_DIR/server.key&key=$PASS"
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-  systemctl daemon-reload
-  systemctl enable --now "$SERVICE"
-  ok "Server tunnel created: $SERVICE"
-  pause
-}
-
-# ---------------- LIST ----------------
-list_services() {
-  systemctl list-units --type=service | grep mehtunnel || echo "No services"
-  pause
-}
-
-# ---------------- CONTROL ----------------
-control_service() {
-  read -p "Service name: " S
-  systemctl restart "$S" && ok "Restarted"
-  pause
-}
-
-# ---------------- REMOVE ----------------
-remove_service() {
-  read -p "Service name to remove: " S
-  systemctl stop "$S" 2>/dev/null
-  systemctl disable "$S" 2>/dev/null
-  rm -f "$SYSTEMD_DIR/$S.service"
-  systemctl daemon-reload
-  ok "Removed $S"
-  pause
-}
-
-# ---------------- LOG ----------------
-view_log() {
-  read -p "Service name: " S
-  journalctl -u "$S" -f
-}
-
-# ---------------- MENU ----------------
+function main_menu() {
 while true; do
-clear
-echo -e "${CYAN}
-███╗   ███╗███████╗██╗  ██╗████████╗██╗   ██╗███╗   ██╗███╗   ██╗███████╗██╗
-████╗ ████║██╔════╝██║  ██║╚══██╔══╝██║   ██║████╗  ██║████╗  ██║██╔════╝██║
-██╔████╔██║█████╗  ███████║   ██║   ██║   ██║██╔██╗ ██║██╔██╗ ██║█████╗  ██║
-██║╚██╔╝██║██╔══╝  ██╔══██║   ██║   ██║   ██║██║╚██╗██║██║╚██╗██║██╔══╝  ██║
-██║ ╚═╝ ██║███████╗██║  ██║   ██║   ╚██████╔╝██║ ╚████║██║ ╚████║███████╗███████╗
-╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚═╝  ╚═══╝╚══════╝╚══════╝
-${NC}"
-echo "1) Create Client Tunnel"
-echo "2) Create Server Tunnel"
-echo "3) List Services"
-echo "4) Restart Service"
-echo "5) Remove Service"
-echo "6) View Logs"
-echo "0) Exit"
-read -p "> " C
-case $C in
-  1) create_client ;;
-  2) create_server ;;
-  3) list_services ;;
-  4) control_service ;;
-  5) remove_service ;;
-  6) view_log ;;
-  0) exit ;;
-esac
+    clear
+    print_logo
+    echo -e "════════════════════════════════════════════"
+    echo "                MAIN MENU"
+    echo -e "════════════════════════════════════════════"
+    echo "[1] Configure Client Tunnel  (Iran)"
+    echo "[2] Configure Server Tunnel  (Kharej)"
+    echo "[3] Manage Tunnels           (Start/Stop/Edit)"
+    echo "[4] View Logs                (Live/Historical)"
+    echo "[5] System Information"
+    echo "[0] Exit"
+    echo -n "[•] Select option: "
+    read -r choice
+    case $choice in
+        1) client_tunnel_menu ;;
+        2) server_tunnel_menu ;;
+        3) manage_tunnels ;;
+        4) view_logs ;;
+        5) system_info ;;
+        0) exit 0 ;;
+        *) echo -e "${RED}Invalid option${RESET}"; sleep 1 ;;
+    esac
 done
+}
+
+function client_tunnel_menu() {
+clear
+print_logo
+echo -e "════════════════════════════════════════════"
+echo "           CLIENT TUNNEL SETUP"
+echo -e "════════════════════════════════════════════"
+echo -n "Enter remote host: "
+read REMOTE_HOST
+echo -n "Enter remote port: "
+read REMOTE_PORT
+LOCAL_PORT=$((10000 + RANDOM % 5000))
+TUNNEL_NAME="client_$LOCAL_PORT"
+nohup $GOST_BIN -L=:$LOCAL_PORT -F=$REMOTE_HOST:$REMOTE_PORT >/dev/null 2>&1 &
+echo $! > "$PID_DIR/$TUNNEL_NAME.pid"
+cat > "$CONFIG_DIR/$TUNNEL_NAME.conf" <<EOC
+remote_host=$REMOTE_HOST
+remote_port=$REMOTE_PORT
+local_port=$LOCAL_PORT
+pid_file=$PID_DIR/$TUNNEL_NAME.pid
+EOC
+echo -e "${GREEN}Tunnel $TUNNEL_NAME started on local port $LOCAL_PORT${RESET}"
+echo "Press Enter to return..."
+read
+}
+
+function server_tunnel_menu() {
+clear
+print_logo
+echo -e "════════════════════════════════════════════"
+echo "           SERVER TUNNEL SETUP"
+echo -e "════════════════════════════════════════════"
+echo -n "Enter listening port: "
+read SERVER_PORT
+TUNNEL_NAME="server_$SERVER_PORT"
+nohup $GOST_BIN -L=:$SERVER_PORT >/dev/null 2>&1 &
+echo $! > "$PID_DIR/$TUNNEL_NAME.pid"
+cat > "$CONFIG_DIR/$TUNNEL_NAME.conf" <<EOC
+local_port=$SERVER_PORT
+pid_file=$PID_DIR/$TUNNEL_NAME.pid
+EOC
+echo -e "${GREEN}Server tunnel $TUNNEL_NAME started on port $SERVER_PORT${RESET}"
+echo "Press Enter to return..."
+read
+}
+
+function manage_tunnels() {
+clear
+echo -e "${BLUE}Active Tunnels:${RESET}"
+ls "$CONFIG_DIR"/*.conf 2>/dev/null | while read -r conf; do
+    TNAME=$(basename "$conf" .conf)
+    PID=$(cat "$conf" | grep pid_file | cut -d= -f2)
+    echo "$TNAME -> PID: $PID"
+done
+echo -n "Enter tunnel name to stop: "
+read TUNNEL
+if [[ -f "$CONFIG_DIR/$TUNNEL.conf" ]]; then
+    PID=$(cat "$CONFIG_DIR/$TUNNEL.conf" | grep pid_file | cut -d= -f2)
+    kill "$PID" && rm "$PID"
+    rm "$CONFIG_DIR/$TUNNEL.conf"
+    echo -e "${RED}Tunnel $TUNNEL stopped${RESET}"
+else
+    echo -e "${YELLOW}Tunnel not found${RESET}"
+fi
+echo "Press Enter to return..."
+read
+}
+
+function view_logs() {
+clear
+echo -e "${BLUE}Available logs:${RESET}"
+ls "$LOG_DIR" 2>/dev/null
+echo -n "Enter log filename to view: "
+read logfile
+if [[ -f "$LOG_DIR/$logfile" ]]; then
+    less "$LOG_DIR/$logfile"
+else
+    echo -e "${YELLOW}Log not found${RESET}"
+fi
+echo "Press Enter to return..."
+read
+}
+
+function system_info() {
+clear
+echo -e "${BLUE}System Information:${RESET}"
+uname -a
+df -h
+free -h
+echo "Press Enter to return..."
+read
+}
+
+main_menu

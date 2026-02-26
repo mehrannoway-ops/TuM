@@ -2,17 +2,21 @@
 set -e
 
 BIN="/usr/local/bin"
-CORE="$BIN/mehtunnel-core"
-MT_SCRIPT="$BIN/mehtunnel"
+CORE="$BIN/mehtunnel"
+APP_DIR="/opt/mehtunnel"
 
-# دانلود GOST
+# نصب پیش‌نیازها
+apt update -qq
+apt install -y curl wget cron openssl jq >/dev/null
+
+# دانلود و نصب gost
 ARCH=$(uname -m)
 VER="2.12.0"
 
 case "$ARCH" in
   x86_64|amd64) FILE="gost_${VER}_linux_amd64.tar.gz" ;;
   aarch64|arm64) FILE="gost_${VER}_linux_arm64.tar.gz" ;;
-  *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+  *) echo "Architecture $ARCH not supported"; exit 1 ;;
 esac
 
 wget -q "https://github.com/ginuerzh/gost/releases/download/v${VER}/${FILE}" -O /tmp/g.tgz
@@ -20,8 +24,12 @@ tar -xzf /tmp/g.tgz -C /tmp
 mv /tmp/gost "$CORE"
 chmod +x "$CORE"
 
-# دانلود mehtunnel.sh و تبدیل به mehtunnel قابل اجرا
-wget -q "https://raw.githubusercontent.com/mehrannoway-ops/TuM/main/mehtunnel.sh" -O "$MT_SCRIPT"
-chmod +x "$MT_SCRIPT"
+# ساخت مسیر برنامه و کپی اسکریپت mehtunnel
+mkdir -p "$APP_DIR"
+curl -fsSL https://raw.githubusercontent.com/mehrannoway-ops/TuM/main/mehtunnel.sh -o "$APP_DIR/mehtunnel.sh"
+chmod +x "$APP_DIR/mehtunnel.sh"
+
+# ساخت لینک اجرای سریع
+ln -sf "$APP_DIR/mehtunnel.sh" /usr/local/bin/mehtunnel
 
 echo "✅ MehTunnel installed. Run: mehtunnel"

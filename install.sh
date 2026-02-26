@@ -3,45 +3,34 @@ set -e
 
 BIN="/usr/local/bin"
 CORE="$BIN/mehtunnel-core"
-INSTALL_DIR="/opt/mehtunnel"
+MT_DIR="/opt/mehtunnel"
+MT_SCRIPT="$MT_DIR/mehtunnel.sh"
 
-echo "[+] Installing dependencies..."
+# نصب پیش‌نیازها
 apt update -qq
 apt install -y curl wget cron openssl jq >/dev/null
 
-echo "[+] Detecting architecture..."
+# دانلود GOST
 ARCH=$(uname -m)
 VER="2.12.0"
 
 case "$ARCH" in
   x86_64|amd64) FILE="gost_${VER}_linux_amd64.tar.gz" ;;
   aarch64|arm64) FILE="gost_${VER}_linux_arm64.tar.gz" ;;
-  *)
-    echo "❌ Unsupported architecture: $ARCH"
-    exit 1
-    ;;
+  *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
 esac
 
-echo "[+] Installing core engine..."
 wget -q "https://github.com/ginuerzh/gost/releases/download/v${VER}/${FILE}" -O /tmp/g.tgz
 tar -xzf /tmp/g.tgz -C /tmp
 mv /tmp/gost "$CORE"
 chmod +x "$CORE"
-rm -f /tmp/g.tgz
 
-echo "[+] Installing MehTunnel script..."
-mkdir -p "$INSTALL_DIR"
+# ساخت دایرکتوری و دانلود mehtunnel.sh از GitHub
+mkdir -p "$MT_DIR"
+wget -q "https://raw.githubusercontent.com/mehrannoway-ops/TuM/main/mehtunnel.sh" -O "$MT_SCRIPT"
+chmod +x "$MT_SCRIPT"
 
-# دانلود مستقیم mehtunnel.sh از GitHub
-curl -fsSL https://raw.githubusercontent.com/mehrannoway-ops/TuM/main/mehtunnel.sh -o "$INSTALL_DIR/mehtunnel.sh"
+# لینک اجرایی
+ln -sf "$MT_SCRIPT" /usr/local/bin/mehtunnel
 
-chmod +x "$INSTALL_DIR/mehtunnel.sh"
-
-# لینک زدن برای اجرا از هر مسیر
-ln -sf "$INSTALL_DIR/mehtunnel.sh" /usr/local/bin/mehtunnel
-
-echo ""
-echo "======================================"
-echo "✅ MehTunnel installed successfully"
-echo "➡️ Run with: mehtunnel"
-echo "======================================"
+echo "✅ MehTunnel installed. Run: mehtunnel"

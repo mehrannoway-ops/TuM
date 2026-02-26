@@ -32,12 +32,12 @@ rm -f /tmp/g.tgz
 echo "[+] Installing MehTunnel script..."
 mkdir -p "$INSTALL_DIR"
 
-curl -fsSL \
-https://raw.githubusercontent.com/mehrannoway-ops/TuM/main/mehtunnel.sh \
--o "$INSTALL_DIR/mehtunnel.sh"
+# دانلود مستقیم mehtunnel.sh از GitHub
+curl -fsSL https://raw.githubusercontent.com/mehrannoway-ops/TuM/main/mehtunnel.sh -o "$INSTALL_DIR/mehtunnel.sh"
 
 chmod +x "$INSTALL_DIR/mehtunnel.sh"
 
+# لینک زدن برای اجرا از هر مسیر
 ln -sf "$INSTALL_DIR/mehtunnel.sh" /usr/local/bin/mehtunnel
 
 echo ""
